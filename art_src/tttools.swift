@@ -390,121 +390,198 @@ func makeIcon(dir: String) {
     p.topDown()
     p.light = -0.80
     let seed: UInt64 = 0x7EE_11_11
-    p.fillAll(Field.walnutDark.dk(0.22))
-    var bg = Dice(seed &+ 3)
-    for k in 0..<9 {
-        let x0 = Double(S) * Double(k) / 9
-        p.rect(x0, 0, Double(S) / 9 + 1, Double(S),
-               Field.walnut.dk(bg.r(0.24, 0.46)))
-        pen(p, [pt(x0, -10), pt(x0 + bg.signed() * 5, Double(S) + 10)], weight: 3.0,
-            colour: Field.ink.al(0.45), wobble: 1.2, taper: false, seed: seed &+ UInt64(k * 7))
-        for _ in 0..<7 {
-            let yy = bg.r(0, Double(S))
-            pen(p, [pt(x0 + 6, yy), pt(x0 + Double(S) / 9 - 6, yy + bg.signed() * 10)],
-                weight: bg.r(1.0, 2.6), colour: Field.oakDark.al(bg.r(0.10, 0.26)),
-                wobble: 1.0, taper: true, seed: seed &+ UInt64(bg.i(1, 9999)))
-        }
-    }
-    for k in 0..<22 {
-        let r = Double(S) * (0.70 - Double(k) * 0.028)
-        p.disc(Double(S) * 0.28, Double(S) * 0.32, r, Field.lampWarm.al(0.016))
-    }
-    washBand(p, from: Double(S) * 0.62, to: Double(S), Field.ink, strength: 0.24, seed: seed &+ 2)
-
-    let spine = arcPts(cx: 300, yTop: -130, yBot: Double(S) + 130, amp: 300, exp: 0.62)
-    var back: [CGPoint] = []
-    var belly: [CGPoint] = []
-    for i in 0..<spine.count {
-        let a = spine[max(0, i - 1)], b = spine[min(spine.count - 1, i + 1)]
-        var tx = Double(b.x - a.x), ty = Double(b.y - a.y)
-        let l = (tx * tx + ty * ty).squareRoot()
-        if l > 0 { tx /= l; ty /= l } else { tx = 0; ty = 1 }
-        let t = Double(i) / Double(spine.count - 1)
-        let hw = 46 * (1 - 0.34 * abs(t * 2 - 1))
-        back.append(pt(Double(spine[i].x) - ty * hw, Double(spine[i].y) + tx * hw))
-        belly.append(pt(Double(spine[i].x) + ty * hw, Double(spine[i].y) - tx * hw))
-    }
-    let body = back + belly.reversed()
-    p.poly(body.map { pt(Double($0.x) - 40, Double($0.y) + 46) }, Field.ink.al(0.30))
-    p.poly(body, Field.yewHeart)
-    var sapIn: [CGPoint] = []
-    for i in 0..<spine.count {
-        let a = spine[max(0, i - 1)], b = spine[min(spine.count - 1, i + 1)]
-        var tx = Double(b.x - a.x), ty = Double(b.y - a.y)
-        let l = (tx * tx + ty * ty).squareRoot()
-        if l > 0 { tx /= l; ty /= l } else { tx = 0; ty = 1 }
-        let t = Double(i) / Double(spine.count - 1)
-        let hw = 46 * (1 - 0.34 * abs(t * 2 - 1)) * 0.44
-        sapIn.append(pt(Double(spine[i].x) - ty * hw, Double(spine[i].y) + tx * hw))
-    }
-    p.poly(back + sapIn.reversed(), Field.yewSap)
-    pen(p, sapIn, weight: 2.2, colour: Field.oakDark.al(0.6), wobble: 0.6, taper: false, seed: seed &+ 5)
-
     var rng = Dice(seed &+ 9)
-    for k in 0..<9 {
-        var pts: [CGPoint] = []
-        var i = 6
-        let f = -0.80 + 1.60 * Double(k) / 8
-        while i < spine.count - 6 {
-            let a = spine[max(0, i - 1)], b = spine[min(spine.count - 1, i + 1)]
-            var tx = Double(b.x - a.x), ty = Double(b.y - a.y)
-            let l = (tx * tx + ty * ty).squareRoot()
-            if l > 0 { tx /= l; ty /= l } else { tx = 0; ty = 1 }
-            let t = Double(i) / Double(spine.count - 1)
-            let hw = 46 * (1 - 0.34 * abs(t * 2 - 1)) * f
-            pts.append(pt(Double(spine[i].x) - ty * hw, Double(spine[i].y) + tx * hw))
-            i += 4
+    let W = Double(S)
+
+    p.fillAll(Tone(r: 0.121, g: 0.086, b: 0.059))
+    let planks = 6
+    for k in 0..<planks {
+        let x0 = W * Double(k) / Double(planks)
+        let bw = W / Double(planks) + 1
+        let t = rng.r(0.0, 1.0)
+        p.rect(x0, 0, bw, W, Tone(r: 0.180 + t * 0.048, g: 0.126 + t * 0.036, b: 0.084 + t * 0.024))
+        pen(p, [pt(x0, -10), pt(x0 + rng.signed() * 4, W + 10)], weight: 5.0,
+            colour: Tone(r: 0.055, g: 0.036, b: 0.026).al(0.85), wobble: 1.4, taper: false,
+            seed: seed &+ UInt64(k * 7))
+        for _ in 0..<6 {
+            let yy = rng.r(0, W)
+            pen(p, [pt(x0 + 8, yy), pt(x0 + bw - 8, yy + rng.signed() * 14)],
+                weight: rng.r(1.6, 3.6), colour: Tone(r: 0.075, g: 0.050, b: 0.034).al(rng.r(0.20, 0.45)),
+                wobble: 1.3, taper: true, seed: seed &+ UInt64(rng.i(1, 9999)))
         }
-        penBroken(p, pts, weight: 1.7, colour: Field.walnutDark.al(rng.r(0.25, 0.5)),
-                  pieces: 3, gap: 0.05, wobble: 0.8, seed: seed &+ UInt64(k * 17))
     }
-    var bellyBand: [CGPoint] = []
-    var inner: [CGPoint] = []
+    for k in 0..<30 {
+        let r = W * (0.52 - Double(k) * 0.016)
+        p.disc(W * 0.20, W * 0.12, r, Field.lampWarm.al(0.020))
+    }
+    for k in 0..<16 {
+        let inset = Double(k) * 30
+        p.poly([pt(-10, W - inset), pt(W + 10, W - inset), pt(W + 10, W + 10), pt(-10, W + 10)],
+               Tone(r: 0.04, g: 0.026, b: 0.018).al(0.038))
+        p.poly([pt(W - inset, -10), pt(W + 10, -10), pt(W + 10, W + 10), pt(W - inset, W + 10)],
+               Tone(r: 0.04, g: 0.026, b: 0.018).al(0.034))
+    }
+
+    let cx = 372.0
+    let yTop = 44.0, yBot = 980.0
+    let amp = 322.0
+    var spine: [CGPoint] = []
+    for i in 0...170 {
+        let u = Double(i) / 170
+        let sgn = u * 2 - 1
+        let d = pow(cos(min(1.0, abs(sgn)) * .pi / 2), 0.60)
+        spine.append(pt(cx + d * amp, yTop + (yBot - yTop) * u))
+    }
+    var norm: [CGPoint] = []
+    var half: [Double] = []
     for i in 0..<spine.count {
         let a = spine[max(0, i - 1)], b = spine[min(spine.count - 1, i + 1)]
         var tx = Double(b.x - a.x), ty = Double(b.y - a.y)
         let l = (tx * tx + ty * ty).squareRoot()
         if l > 0 { tx /= l; ty /= l } else { tx = 0; ty = 1 }
+        norm.append(pt(-ty, tx))
         let t = Double(i) / Double(spine.count - 1)
-        let hw = 46 * (1 - 0.34 * abs(t * 2 - 1))
-        bellyBand.append(pt(Double(spine[i].x) + ty * hw, Double(spine[i].y) - tx * hw))
-        inner.append(pt(Double(spine[i].x) + ty * hw * 0.3, Double(spine[i].y) - tx * hw * 0.3))
+        half.append(38 * (1 - 0.46 * abs(t * 2 - 1)))
     }
-    shade(p, pathOf(bellyBand + inner.reversed()), depth: 3, spacing: 5.2,
-          colour: Field.ink.al(0.45), bound: pathOf(body), seed: seed &+ 31)
-    var rim: [CGPoint] = []
-    for i in 0..<spine.count {
-        let a = spine[max(0, i - 1)], b = spine[min(spine.count - 1, i + 1)]
-        var tx = Double(b.x - a.x), ty = Double(b.y - a.y)
-        let l = (tx * tx + ty * ty).squareRoot()
-        if l > 0 { tx /= l; ty /= l } else { tx = 0; ty = 1 }
-        let t = Double(i) / Double(spine.count - 1)
-        let hw = 46 * (1 - 0.34 * abs(t * 2 - 1)) * 0.86
-        rim.append(pt(Double(spine[i].x) - ty * hw, Double(spine[i].y) + tx * hw))
+    func edge(_ k: Double) -> [CGPoint] {
+        var out: [CGPoint] = []
+        for i in 0..<spine.count {
+            out.append(pt(Double(spine[i].x) + Double(norm[i].x) * half[i] * k,
+                          Double(spine[i].y) + Double(norm[i].y) * half[i] * k))
+        }
+        return out
     }
-    pen(p, rim, weight: 5.0, colour: Field.lampWarm.al(0.55), wobble: 0.7, taper: true, seed: seed &+ 39)
-    pen(p, back, weight: 5.0, colour: Field.ink, wobble: 1.0, taper: false, seed: seed &+ 41)
-    pen(p, belly, weight: 6.0, colour: Field.ink, wobble: 1.0, taper: false, seed: seed &+ 43)
+    let back = edge(1.0)
+    let belly = edge(-1.0)
+    let body = back + belly.reversed()
 
-    let a = spine[spine.count - 1], b = spine[0]
-    pen(p, [pt(Double(a.x) - 20, Double(a.y)), pt(Double(b.x) - 20, Double(b.y))],
-        weight: 11.0, colour: Field.hemp.lt(0.10), wobble: 0.6, taper: false, seed: seed &+ 51)
-    pen(p, [pt(Double(a.x) - 20, Double(a.y)), pt(Double(b.x) - 20, Double(b.y))],
-        weight: 4.0, colour: Field.ink.al(0.50), wobble: 0.5, taper: false, seed: seed &+ 53)
+    for k in 0..<10 {
+        let o = Double(k) * 8
+        p.poly(body.map { pt(Double($0.x) - o - 10, Double($0.y) + o * 0.45 + 16) },
+               Tone(r: 0.03, g: 0.02, b: 0.014).al(0.055))
+    }
 
-    let gx = Double(spine[spine.count / 2].x)
-    let gy = Double(spine[spine.count / 2].y)
-    for k in 0..<19 {
-        let t = Double(k) / 18
-        let yy = gy - 140 + 280 * t
-        pen(p, [pt(gx - 34, yy), pt(gx + 36, yy - 15)], weight: 10.0,
-            colour: Field.leather.dk(rng.r(0.04, 0.34)), wobble: 0.8, taper: false,
+    p.poly(body, Field.yewHeart.dk(0.06))
+    p.poly(edge(1.0) + edge(0.30).reversed(), Field.yewSap)
+    pen(p, edge(0.30), weight: 3.2, colour: Field.walnutDark.al(0.78), wobble: 0.9,
+        taper: false, seed: seed &+ 5)
+    for k in 0..<9 {
+        let f = -0.84 + 1.68 * Double(k) / 8
+        var pts: [CGPoint] = []
+        var i = 5
+        while i < spine.count - 5 {
+            pts.append(pt(Double(spine[i].x) + Double(norm[i].x) * half[i] * f,
+                          Double(spine[i].y) + Double(norm[i].y) * half[i] * f))
+            i += 6
+        }
+        penBroken(p, pts, weight: rng.r(1.3, 2.4),
+                  colour: (f > 0.30 ? Field.oakDark : Field.walnutDark).al(rng.r(0.22, 0.44)),
+                  pieces: 3, gap: 0.05, wobble: 0.9, seed: seed &+ UInt64(k * 17))
+    }
+    shade(p, pathOf(belly + edge(-0.24).reversed()), depth: 3, spacing: 5.4,
+          colour: Tone(r: 0.05, g: 0.03, b: 0.02).al(0.55), bound: pathOf(body), seed: seed &+ 31)
+    pen(p, edge(0.88), weight: 7.0, colour: Field.lampWarm.al(0.66), wobble: 0.8,
+        taper: true, seed: seed &+ 37)
+    pen(p, back, weight: 5.0, colour: Tone(r: 0.05, g: 0.032, b: 0.022).al(0.92),
+        wobble: 0.9, taper: false, seed: seed &+ 41)
+    pen(p, belly, weight: 6.0, colour: Tone(r: 0.04, g: 0.026, b: 0.018).al(0.95),
+        wobble: 0.9, taper: false, seed: seed &+ 43)
+
+    let n = spine.count - 1
+    let nockAt: [Int] = [0, n]
+    for idx in 0..<2 {
+        let i = nockAt[idx]
+        let q = spine[i], nn = norm[i], hh = half[i]
+        pen(p, [pt(Double(q.x) - Double(nn.x) * hh * 1.5, Double(q.y) - Double(nn.y) * hh * 1.5),
+                pt(Double(q.x) + Double(nn.x) * hh * 1.5, Double(q.y) + Double(nn.y) * hh * 1.5)],
+            weight: 9.0, colour: Field.horn.lt(0.10), wobble: 0.5, taper: false,
+            seed: seed &+ UInt64(idx + 300))
+    }
+
+    let ax = Double(spine[n].x), bx = Double(spine[0].x)
+    pen(p, [pt(ax - 8, yBot), pt(bx - 8, yTop)], weight: 11.0,
+        colour: Tone(r: 0.04, g: 0.026, b: 0.018).al(0.60), wobble: 0.7, taper: false, seed: seed &+ 49)
+    pen(p, [pt(ax, yBot), pt(bx, yTop)], weight: 8.0,
+        colour: Field.hemp.lt(0.30), wobble: 0.6, taper: false, seed: seed &+ 51)
+    pen(p, [pt(ax + 2.4, yBot), pt(bx + 2.4, yTop)], weight: 2.8,
+        colour: Field.lampWarm.al(0.85), wobble: 0.4, taper: false, seed: seed &+ 53)
+
+    let mid = spine.count / 2
+    let gx = Double(spine[mid].x)
+    let gy = Double(spine[mid].y)
+    let gh = half[mid]
+    for k in 0..<17 {
+        let t = Double(k) / 16
+        let yy = gy - 124 + 248 * t
+        pen(p, [pt(gx - gh * 1.06, yy + 9), pt(gx + gh * 1.06, yy - 9)], weight: 15.0,
+            colour: Field.leather.dk(rng.r(0.04, 0.30)), wobble: 0.9, taper: false,
             seed: seed &+ UInt64(k * 19 + 61))
-        pen(p, [pt(gx - 34, yy + 7), pt(gx + 36, yy - 8)], weight: 2.4,
-            colour: Field.ink.al(0.42), wobble: 0.6, taper: false,
-            seed: seed &+ UInt64(k * 23 + 67))
+        pen(p, [pt(gx + gh * 0.20, yy - 3), pt(gx + gh * 1.06, yy - 10)], weight: 4.4,
+            colour: Field.lampWarm.al(0.30), wobble: 0.6, taper: true,
+            seed: seed &+ UInt64(k * 23 + 71))
     }
-    stipple(p, pathOf([pt(0, 0), pt(Double(S), 0), pt(Double(S), Double(S)), pt(0, Double(S))]),
-            density: 0.00022, sizeMin: 0.6, sizeMax: 2.0, colour: Field.inkPale.al(0.16), seed: seed &+ 91)
+    pen(p, [pt(gx - gh * 1.14, gy - 132), pt(gx + gh * 1.14, gy - 150)], weight: 6.0,
+        colour: Tone(r: 0.05, g: 0.032, b: 0.022).al(0.85), wobble: 0.7, taper: false, seed: seed &+ 601)
+    pen(p, [pt(gx - gh * 1.14, gy + 132), pt(gx + gh * 1.14, gy + 114)], weight: 6.0,
+        colour: Tone(r: 0.05, g: 0.032, b: 0.022).al(0.85), wobble: 0.7, taper: false, seed: seed &+ 603)
+
+    let ay = 556.0
+    let tailX = 214.0, tipX = 1064.0
+    let tailY = ay + 30.0, tipY = ay - 38.0
+    let shaftA = pt(tailX, tailY), shaftB = pt(tipX, tipY)
+    pen(p, [pt(tailX - 4, tailY + 22), pt(tipX - 4, tipY + 22)],
+        weight: 15.0, colour: Tone(r: 0.03, g: 0.02, b: 0.014).al(0.42), wobble: 0.6,
+        taper: false, seed: seed &+ 701)
+    pen(p, [shaftA, shaftB], weight: 14.0, colour: Field.pine.dk(0.16), wobble: 0.6,
+        taper: false, seed: seed &+ 703)
+    pen(p, [pt(tailX, tailY - 4.2), pt(tipX, tipY - 4.2)],
+        weight: 3.6, colour: Field.lampWarm.al(0.58), wobble: 0.4, taper: false, seed: seed &+ 705)
+
+    let headBack = 852.0
+    let hy0 = ay - 38.0 + (headBack - tipX) / (tailX - tipX) * (tailY - tipY)
+    p.poly([pt(tipX, tipY - 4), pt(headBack, hy0 - 20), pt(headBack - 34, hy0),
+            pt(headBack, hy0 + 18), pt(tipX, tipY + 8)], Field.steel.dk(0.14))
+    penContour(p, [pt(tipX, tipY - 4), pt(headBack, hy0 - 20), pt(headBack - 34, hy0),
+                   pt(headBack, hy0 + 18), pt(tipX, tipY + 8)],
+               weight: 4.0, colour: Tone(r: 0.05, g: 0.05, b: 0.058), seed: seed &+ 707)
+    pen(p, [pt(headBack + 12, hy0 - 12), pt(tipX - 18, tipY - 2)], weight: 4.0,
+        colour: Field.lampWarm.al(0.60), wobble: 0.4, taper: true, seed: seed &+ 709)
+
+    let vaneSides: [Double] = [-1.0, 1.0, -1.0]
+    let vaneStart: [Double] = [216.0, 222.0, 228.0]
+    for k in 0..<3 {
+        let side: Double = vaneSides[k]
+        let x0: Double = vaneStart[k]
+        var vane: [CGPoint] = []
+        for i in 0...20 {
+            let u: Double = Double(i) / 20.0
+            let bx2: Double = x0 + u * 178.0
+            let by2: Double = tailY - u * 14.0
+            let bulge: Double = 6.0 + sin(u * Double.pi) * 30.0
+            vane.append(pt(bx2, by2 + side * bulge))
+        }
+        vane.append(pt(x0 + 178.0, tailY - 14.0 + side * 6.0))
+        p.poly(vane, k == 1 ? Field.bone.dk(0.04) : Field.oxblood.lt(0.10))
+        penContour(p, vane, weight: 2.6, colour: Tone(r: 0.05, g: 0.032, b: 0.026),
+                   seed: seed &+ UInt64(k + 711))
+        var rib = Dice(seed &+ UInt64(k * 37 + 5))
+        for i in 0..<12 {
+            let u: Double = Double(i) / 12.0
+            let rx: Double = x0 + u * 178.0
+            let ry: Double = tailY - u * 14.0
+            let rb: Double = 6.0 + sin(u * Double.pi) * 28.0
+            pen(p, [pt(rx, ry + side * 6.0), pt(rx + 9.0, ry + side * rb)],
+                weight: 1.6, colour: Tone(r: 0.06, g: 0.04, b: 0.03).al(rib.r(0.20, 0.42)),
+                wobble: 0.4, taper: false, seed: seed &+ UInt64(i + k * 41 + 720))
+        }
+    }
+    pen(p, [pt(tailX - 4, tailY - 14), pt(tailX - 4, tailY + 16)], weight: 11.0,
+        colour: Field.horn.lt(0.08), wobble: 0.4, taper: false, seed: seed &+ 719)
+    pen(p, [pt(tailX - 1, tailY - 12), pt(tailX - 1, tailY + 14)], weight: 3.0,
+        colour: Field.lampWarm.al(0.42), wobble: 0.3, taper: false, seed: seed &+ 721)
+
+    stipple(p, pathOf([pt(0, 0), pt(W, 0), pt(W, W), pt(0, W)]),
+            density: 0.00014, sizeMin: 0.7, sizeMax: 2.0, colour: Field.lampWarm.al(0.10),
+            seed: seed &+ 91)
     p.writePNG(dir, "AppIcon-1024")
 }

@@ -50,6 +50,7 @@ struct BookView: View {
             .background(Bark.paper.ignoresSafeArea())
             .navigationBarTitle("The Book", displayMode: .inline)
 
+
         }
         .navigationViewStyle(StackNavigationViewStyle())
     }

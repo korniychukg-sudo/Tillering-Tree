@@ -42,7 +42,6 @@ struct TodayView: View {
     @State private var now = Date()
 
     private var seed: DaySeed { DaySeed(now) }
-    private var stave: BowEntry { seed.pick(bowLibrary, 11) }
     private var guide: GuideEntry { seed.pick(guideLibrary, 23) }
     private var job: DailyJob { jobsFor(seed) }
     private var hour: Int { Calendar.current.component(.hour, from: now) }
@@ -52,11 +51,33 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     ShopScene(hour: hour, seed: seed.value)
-                        .frame(height: 240)
+                        .frame(height: 232)
                         .overlay(Rectangle().stroke(Bark.ink.opacity(0.18), lineWidth: 1))
                     header
+                    if !store.save.taken.isEmpty {
+                        SmallCap(text: "On the bench for somebody")
+                        ForEach(store.save.taken) { c in
+                            NavigationLink(destination: CommissionPage(commission: c, taken: true,
+                                                                       pending: $pending, tab: $tab)) {
+                                CommissionCard(commission: c, now: now, taken: true)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if !store.save.board.isEmpty {
+                        SmallCap(text: "Asking around the shop")
+                        ForEach(store.save.board) { c in
+                            NavigationLink(destination: CommissionPage(commission: c, taken: false,
+                                                                       pending: $pending, tab: $tab)) {
+                                CommissionCard(commission: c, now: now, taken: false)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    NavigationLink(destination: ToolShopView()) { shopRow }
+                        .buttonStyle(.plain)
+                    freeWork
                     jobCard
-                    staveCard
                     guideCard
                     rankCard
                 }
@@ -66,19 +87,70 @@ struct TodayView: View {
             .navigationBarTitle("The Shop", displayMode: .inline)
         }
         .navigationViewStyle(StackNavigationViewStyle())
-        .onAppear { now = Date(); store.touchDay() }
+        .onAppear {
+            now = Date(); store.touchDay(); store.refreshBoard(now)
+        }
     }
 
     private var header: some View {
-        HStack {
+        VStack(spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(shopWord(hour)).font(Bark.serifBold(19)).foregroundColor(Bark.ink)
+                    Text(shortDate(now)).font(Bark.serif(13)).foregroundColor(Bark.inkPale)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    SmallCap(text: "Purse")
+                    Text("\(store.save.money)").font(Bark.serifBold(24)).foregroundColor(Bark.ink)
+                }
+            }
+            if !store.save.lastResult.isEmpty {
+                RuleLine()
+                Text(store.save.lastResult).font(Bark.serifItalic(13)).foregroundColor(Bark.inkSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            RuleLine()
+            HStack(spacing: 16) {
+                MiniStat(value: "\(store.save.streak)", label: "days")
+                MiniStat(value: "\(store.save.filled)", label: "filled")
+                MiniStat(value: "\(store.save.missed)", label: "missed")
+                MiniStat(value: "\(store.save.tools.count)/\(shopTools.count)", label: "tools")
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(12)
+        .background(Paperboard())
+    }
+
+    private var shopRow: some View {
+        HStack(spacing: 12) {
+            StrokeGlyph(shape: GlyphScraper(), tone: Bark.walnut, width: 1.6)
+                .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
-                Text(shopWord(hour)).font(Bark.serifBold(19)).foregroundColor(Bark.ink)
-                Text(shortDate(now)).font(Bark.serif(13)).foregroundColor(Bark.inkPale)
+                Text("The tool chest").font(Bark.serifBold(16)).foregroundColor(Bark.ink)
+                Text(store.save.tools.count == shopTools.count
+                     ? "Everything a bowyer needs is in it."
+                     : "\(shopTools.count - store.save.tools.count) still to buy. Tools change what you can feel.")
+                    .font(Bark.serif(13)).foregroundColor(Bark.inkPale)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                SmallCap(text: "Days running")
-                Text("\(store.save.streak)").font(Bark.serifBold(24)).foregroundColor(Bark.ink)
+            StrokeGlyph(shape: GlyphArrowRight(), tone: Bark.inkPale, width: 1.4)
+                .frame(width: 16, height: 16)
+        }
+        .padding(12)
+        .background(Paperboard())
+    }
+
+    private var freeWork: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallCap(text: "Or work for yourself")
+            RuleLine()
+            Text("Split any stave in the book and take it wherever you like. Nobody is waiting on it and nobody is paying for it.")
+                .font(Bark.serif(14)).foregroundColor(Bark.inkSoft)
+            WoodButton(title: "Go to the bench", tone: Bark.inkSoft) {
+                pending = nil
+                tab = 1
             }
         }
         .padding(12)
@@ -116,31 +188,6 @@ struct TodayView: View {
         }
     }
 
-    private var staveCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallCap(text: "On the bench today")
-            RuleLine()
-            HStack(spacing: 12) {
-                PlateBand(name: stave.plate, focusY: 0.42, zoom: 1.5, maxDim: 520)
-                    .frame(width: 70, height: 92)
-                    .overlay(Rectangle().stroke(Bark.ink.opacity(0.20), lineWidth: 1))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(stave.name).font(Bark.serifBold(16)).foregroundColor(Bark.ink)
-                    Text(stave.timber).font(Bark.serifItalic(13)).foregroundColor(Bark.inkPale)
-                    Text("\(stave.weight) lb at \(stave.draw)\"").font(Bark.serif(13))
-                        .foregroundColor(Bark.inkSoft)
-                }
-                Spacer()
-            }
-            WoodButton(title: "Split this stave") {
-                pending = stave.slug
-                tab = 1
-            }
-        }
-        .padding(12)
-        .background(Paperboard())
-    }
-
     private var guideCard: some View {
         NavigationLink(destination: GuidePage(guide: guide)) {
             VStack(alignment: .leading, spacing: 8) {
@@ -176,24 +223,10 @@ struct TodayView: View {
                     .font(Bark.serifItalic(12)).foregroundColor(Bark.inkPale)
             }
             HStack(spacing: 16) {
-                VStack(spacing: 2) {
-                    Text("\(store.save.bows.count)").font(Bark.serifBold(18)).foregroundColor(Bark.ink)
-                    SmallCap(text: "bows", size: 10)
-                }
-                VStack(spacing: 2) {
-                    Text("\(store.save.seenBows.count)/\(bowLibrary.count)")
-                        .font(Bark.serifBold(18)).foregroundColor(Bark.ink)
-                    SmallCap(text: "patterns", size: 10)
-                }
-                VStack(spacing: 2) {
-                    Text("\(store.save.readGuides.count)/\(guideLibrary.count)")
-                        .font(Bark.serifBold(18)).foregroundColor(Bark.ink)
-                    SmallCap(text: "pages", size: 10)
-                }
-                VStack(spacing: 2) {
-                    Text("\(store.save.shotsFired)").font(Bark.serifBold(18)).foregroundColor(Bark.ink)
-                    SmallCap(text: "arrows", size: 10)
-                }
+                MiniStat(value: "\(store.save.bows.count)", label: "bows")
+                MiniStat(value: "\(store.save.seenBows.count)/\(bowLibrary.count)", label: "patterns")
+                MiniStat(value: "\(store.save.readGuides.count)/\(guideLibrary.count)", label: "pages")
+                MiniStat(value: "\(store.save.earned)", label: "earned")
             }
             .frame(maxWidth: .infinity)
         }
@@ -210,6 +243,17 @@ struct TodayView: View {
         case 18..<21: return "Evening, lamp lit"
         case 21..<24: return "Late, and quiet"
         default: return "Before anyone is up"
+        }
+    }
+}
+
+struct MiniStat: View {
+    let value: String
+    let label: String
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value).font(Bark.serifBold(18)).foregroundColor(Bark.ink)
+            SmallCap(text: label, size: 10)
         }
     }
 }

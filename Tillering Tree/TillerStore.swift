@@ -36,6 +36,18 @@ struct TillerSave: Codable {
     var dBestEnd: Int = 0
     var dBroken: Int = 0
     var dBestGrade: Double = 0
+    var money: Int = 60
+    var tools: [String] = []
+    var clientRep: [String: Int] = [:]
+    var board: [Commission] = []
+    var boardDay: String = ""
+    var taken: [Commission] = []
+    var filled: Int = 0
+    var missed: Int = 0
+    var earned: Int = 0
+    var lastResult: String = ""
+
+    var repTotal: Int { clientRep.values.reduce(0, +) }
 }
 
 final class TillerStore: ObservableObject {
@@ -58,7 +70,97 @@ final class TillerStore: ObservableObject {
         }
     }
 
+    var kit: Kit { Kit(owned: save.tools) }
+
+    func refreshBoard(_ now: Date = Date()) {
+        let today = dayKey(now)
+        var changed = false
+        var stillTaken: [Commission] = []
+        for c in save.taken {
+            if c.done { continue }
+            if c.daysLeft(now) < 0 {
+                save.missed += 1
+                save.clientRep[c.client] = max(0, (save.clientRep[c.client] ?? 0) - 12)
+                save.lastResult = "\(clientBySlug(c.client).name) gave up waiting."
+                changed = true
+            } else {
+                stillTaken.append(c)
+            }
+        }
+        if stillTaken.count != save.taken.count { save.taken = stillTaken }
+        if save.boardDay != today {
+            save.boardDay = today
+            let takenIDs = Set(save.taken.map { $0.client })
+            save.board = rollBoard(save, now: now).filter { !takenIDs.contains($0.client) }
+            changed = true
+        }
+        if changed { persist() }
+    }
+
+    func take(_ c: Commission) {
+        guard !save.taken.contains(where: { $0.id == c.id }) else { return }
+        var copy = c
+        copy.taken = true
+        save.taken.append(copy)
+        save.board.removeAll { $0.id == c.id }
+        persist()
+    }
+
+    func drop(_ c: Commission) {
+        save.taken.removeAll { $0.id == c.id }
+        save.clientRep[c.client] = max(0, (save.clientRep[c.client] ?? 0) - 5)
+        persist()
+    }
+
+    func settle(_ bow: FinishedBow) -> Commission? {
+        for i in save.taken.indices where !save.taken[i].done {
+            let c = save.taken[i]
+            if c.needsShooting { continue }
+            if matches(c, bow: bow) {
+                save.taken[i].done = true
+                save.money += c.pay
+                save.earned += c.pay
+                save.filled += 1
+                save.clientRep[c.client] = (save.clientRep[c.client] ?? 0) + c.rep
+                save.lastResult = "\(clientBySlug(c.client).name) paid \(c.pay)."
+                award(c.pay)
+                save.taken.removeAll { $0.id == c.id }
+                persist()
+                return c
+            }
+        }
+        return nil
+    }
+
+    func settleShooting(_ bow: FinishedBow) -> Commission? {
+        for i in save.taken.indices where !save.taken[i].done {
+            let c = save.taken[i]
+            guard c.needsShooting else { continue }
+            if matches(c, bow: bow) {
+                save.taken[i].done = true
+                save.money += c.pay
+                save.earned += c.pay
+                save.filled += 1
+                save.clientRep[c.client] = (save.clientRep[c.client] ?? 0) + c.rep
+                save.lastResult = "\(clientBySlug(c.client).name) paid \(c.pay)."
+                award(c.pay)
+                save.taken.removeAll { $0.id == c.id }
+                persist()
+                return c
+            }
+        }
+        return nil
+    }
+
+    func buy(_ tool: ShopTool) {
+        guard save.money >= tool.price, !save.tools.contains(tool.slug) else { return }
+        save.money -= tool.price
+        save.tools.append(tool.slug)
+        persist()
+    }
+
     func touchDay() {
+        refreshBoard()
         let today = dayKey(Date())
         guard save.lastDay != today else { return }
         if let prev = Calendar.current.date(byAdding: .day, value: -1, to: Date()),
@@ -85,14 +187,16 @@ final class TillerStore: ObservableObject {
         persist()
     }
 
-    func record(_ bow: FinishedBow) {
+    func record(_ bow: FinishedBow) -> Commission? {
         save.bows.insert(bow, at: 0)
         save.dBows += 1
         save.dBestGrade = max(save.dBestGrade, bow.grade)
         save.bestGrade = max(save.bestGrade, bow.grade)
         if !save.seenBows.contains(bow.slug) { save.seenBows.append(bow.slug) }
         award(Int(120 + bow.grade * 260))
+        save.money += 18 + Int(bow.grade * 40)
         persist()
+        return settle(bow)
     }
 
     func markBroken() {

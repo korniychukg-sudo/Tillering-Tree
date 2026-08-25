@@ -84,6 +84,7 @@ struct RangeShootView: View {
     let bow: FinishedBow
     @StateObject private var run: ShootRun
     @State private var logged = false
+    @State private var settled: Commission? = nil
 
     init(bow: FinishedBow) {
         self.bow = bow
@@ -110,6 +111,12 @@ struct RangeShootView: View {
                         Text("End of six: \(run.total)").font(Bark.serifBold(20)).foregroundColor(Bark.ink)
                         Text(verdict(run.total)).font(Bark.serifItalic(14)).foregroundColor(Bark.inkSoft)
                             .multilineTextAlignment(.center)
+                        if let s = settled {
+                            RuleLine()
+                            Text("\(clientBySlug(s.client).name) took the bow and paid \(s.pay).")
+                                .font(Bark.serifBold(14)).foregroundColor(Bark.moss)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .padding(12)
                     .background(Paperboard())
@@ -119,6 +126,9 @@ struct RangeShootView: View {
                         store.logShots(6, score: run.total)
                         store.updateBow(bow.id, shots: 6, best: run.total)
                         store.award(10 + run.total)
+                        if let updated = store.save.bows.first(where: { $0.id == bow.id }) {
+                            settled = store.settleShooting(updated)
+                        }
                     }
                 }
             }

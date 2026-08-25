@@ -3,13 +3,15 @@ import SwiftUI
 struct TillerStageView: View {
     @ObservedObject var session: MakeSession
     @State private var showGizmo = false
+    @State private var glow = false
     @State private var touched: (Bool, Int)? = nil
 
     var body: some View {
         let r = session.reading
         return VStack(spacing: 10) {
             GeometryReader { geo in
-                TreeCanvas(session: session, reading: r, touched: touched)
+                TreeCanvas(session: session, reading: r, touched: touched,
+                           marked: showGizmo ? session.lazySegment : nil)
                     .contentShape(Rectangle())
                     .gesture(DragGesture(minimumDistance: 0)
                         .onChanged { v in scrapeAt(v.location, geo.size) }
@@ -27,8 +29,8 @@ struct TillerStageView: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     SmallCap(text: "On the scale")
-                    Text("\(Int(r.pounds.rounded())) lb")
-                        .font(Bark.serifBold(26))
+                    Text(session.kit.weightReading(r.pounds, seed: session.seed))
+                        .font(Bark.serifBold(session.kit.hasScale ? 26 : 21))
                         .foregroundColor(session.weightError < 0.08 ? Bark.moss :
                                             (r.pounds > Double(session.entry.weight) ? Bark.ink : Bark.oxblood))
                 }
@@ -45,7 +47,11 @@ struct TillerStageView: View {
                 MeterBar(label: "Balance", value: r.balance, tone: Bark.oak)
             }
 
-            if let m = session.message {
+            if session.onLongString {
+                Text("The long string is on. Pull as far as you like up to twenty inches; nothing is being strained yet.")
+                    .font(Bark.serifItalic(13)).foregroundColor(Bark.moss)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let m = session.message {
                 Text(m).font(Bark.serifItalic(13)).foregroundColor(Bark.oxblood)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if r.peakStrain > session.build.setStrain * 0.92 {
@@ -56,10 +62,14 @@ struct TillerStageView: View {
                     .font(Bark.serifItalic(13)).foregroundColor(Bark.inkPale)
             }
 
-            if showGizmo { GizmoStrip(session: session, reading: r) }
+            if showGizmo && session.kit.hasGizmo { GizmoStrip(session: session, reading: r) }
 
             HStack(spacing: 10) {
-                QuietButton(title: showGizmo ? "Hide gizmo" : "Gizmo") { showGizmo.toggle() }
+                if session.kit.hasGizmo {
+                    QuietButton(title: showGizmo ? "Hide gizmo" : "Gizmo") { showGizmo.toggle() }
+                } else {
+                    QuietButton(title: "No gizmo", tone: Bark.inkPale) { }
+                }
                 QuietButton(title: "Let down") { session.stepNotch(-1) }
                 WoodButton(title: session.notch >= session.maxNotch ? "Pull again" : "Pull to \(Int(session.notchInches) + 2)\"") {
                     if session.notch < session.maxNotch { session.stepNotch(1) }
@@ -121,6 +131,7 @@ struct TreeCanvas: View {
     @ObservedObject var session: MakeSession
     let reading: DrawReading
     let touched: (Bool, Int)?
+    var marked: (Bool, Int)? = nil
 
     var body: some View {
         Canvas { ctx, size in
@@ -154,10 +165,12 @@ struct TreeCanvas: View {
 
         let tipU = limbPath(&ctx, curve: reading.upper, thick: session.build.upper.thick,
                             strain: reading.upper.strain, cx: cx, handleY: handleY, L: L,
-                            sign: 1, hot: touched?.0 == true ? touched?.1 : nil)
+                            sign: 1, hot: touched?.0 == true ? touched?.1 : nil,
+                            mark: marked?.0 == true ? marked?.1 : nil)
         let tipL = limbPath(&ctx, curve: reading.lower, thick: session.build.lower.thick,
                             strain: reading.lower.strain, cx: cx, handleY: handleY, L: L,
-                            sign: -1, hot: touched?.0 == false ? touched?.1 : nil)
+                            sign: -1, hot: touched?.0 == false ? touched?.1 : nil,
+                            mark: marked?.0 == false ? marked?.1 : nil)
 
         let apexY = max(tipU.y, tipL.y) + L * 0.16
         var str = Path()
@@ -178,7 +191,7 @@ struct TreeCanvas: View {
 
     private func limbPath(_ ctx: inout GraphicsContext, curve: LimbCurve, thick: [Double],
                           strain: [Double], cx: CGFloat, handleY: CGFloat, L: CGFloat,
-                          sign: CGFloat, hot: Int?) -> CGPoint {
+                          sign: CGFloat, hot: Int?, mark: Int? = nil) -> CGPoint {
         var pts: [CGPoint] = []
         for p in curve.points {
             pts.append(CGPoint(x: cx + sign * CGFloat(p.x) * L, y: handleY + CGFloat(p.y) * L))
@@ -240,6 +253,17 @@ struct TreeCanvas: View {
         for p in belly.dropFirst() { bellyLine.addLine(to: p) }
         ctx.stroke(backLine, with: .color(Bark.ink.opacity(0.75)), lineWidth: 1.3)
         ctx.stroke(bellyLine, with: .color(Bark.ink.opacity(0.85)), lineWidth: 1.6)
+        if let m = mark, m < segCount {
+            var flag = Path()
+            let a = back[m], b = back[m + 1]
+            let mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+            let nx = norm[m].x, ny = norm[m].y
+            flag.move(to: CGPoint(x: mx + nx * 6, y: my + ny * 6))
+            flag.addLine(to: CGPoint(x: mx + nx * 26, y: my + ny * 26))
+            ctx.stroke(flag, with: .color(Bark.moss), lineWidth: 2.4)
+            ctx.fill(Path(ellipseIn: CGRect(x: mx + nx * 26 - 4, y: my + ny * 26 - 4,
+                                            width: 8, height: 8)), with: .color(Bark.moss))
+        }
         var nock = Path()
         nock.move(to: back[segCount])
         nock.addLine(to: belly[segCount])

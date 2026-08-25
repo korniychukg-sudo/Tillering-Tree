@@ -41,6 +41,16 @@ struct BraceStageView: View {
                     Spacer()
                     Text("Quiet and slow").font(Bark.serif(11)).foregroundColor(Bark.inkPale)
                 }
+                if session.kit.hasSquare {
+                    HStack(spacing: 6) {
+                        StrokeGlyph(shape: GlyphMark(), tone: Bark.moss, width: 1.8)
+                            .frame(width: 12, height: 12)
+                        Text(String(format: "The square reads %.1f in for this pattern",
+                                    idealBrace(session.entry.shape)))
+                            .font(Bark.serifBold(13)).foregroundColor(Bark.moss)
+                        Spacer()
+                    }
+                }
             }
             .padding(10)
             .background(Paperboard())

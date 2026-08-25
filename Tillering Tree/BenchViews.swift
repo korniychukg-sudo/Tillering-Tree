@@ -12,7 +12,9 @@ struct BenchView: View {
                     MakeFlow(session: s, onClose: { session = nil })
                 } else {
                     StavePicker(onPick: { entry in
-                        session = MakeSession(entry: entry, seed: hashString(entry.slug + dayKey(Date())))
+                        session = MakeSession(entry: entry,
+                                              seed: hashString(entry.slug + dayKey(Date())),
+                                              kit: store.kit)
                     })
                 }
             }
@@ -21,7 +23,9 @@ struct BenchView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
             if let p = pending {
-                session = MakeSession(entry: bowBySlug(p), seed: hashString(p + dayKey(Date())))
+                session = MakeSession(entry: bowBySlug(p),
+                                      seed: hashString(p + dayKey(Date())),
+                                      kit: store.kit)
                 pending = nil
             }
         }
@@ -45,6 +49,24 @@ struct StavePicker: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                if !store.save.taken.isEmpty {
+                    VStack(alignment: .leading, spacing: 7) {
+                        SmallCap(text: "Work waiting on you")
+                        RuleLine()
+                        ForEach(store.save.taken) { c in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(clientBySlug(c.client).name + " \u{2014} " + c.title)
+                                    .font(Bark.serifBold(14)).foregroundColor(Bark.ink)
+                                Text(c.demands.joined(separator: "  \u{00B7}  "))
+                                    .font(Bark.serif(12)).foregroundColor(Bark.inkPale)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(12)
+                    .background(Paperboard())
+                }
                 Text("Pick a stave and a pattern to work to.")
                     .font(Bark.serifItalic(15)).foregroundColor(Bark.inkSoft)
                     .padding(.top, 10)
@@ -209,6 +231,8 @@ struct FinishPanel: View {
     @ObservedObject var session: MakeSession
     @Binding var recorded: Bool
     let onClose: () -> Void
+    @State private var filled: Commission? = nil
+    @State private var madeBow: FinishedBow? = nil
 
     var body: some View {
         VStack(spacing: 12) {
@@ -228,6 +252,31 @@ struct FinishPanel: View {
             }
             .padding(10)
             .background(Paperboard())
+            if let f = filled {
+                VStack(spacing: 7) {
+                    SmallCap(text: "Commission filled", tone: Bark.moss)
+                    Text(clientBySlug(f.client).name).font(Bark.serifBold(17)).foregroundColor(Bark.ink)
+                    Text("Paid \(f.pay). Standing with them is up \(f.rep).")
+                        .font(Bark.serif(14)).foregroundColor(Bark.inkSoft)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Bark.moss.opacity(0.14))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Bark.moss.opacity(0.5), lineWidth: 1)))
+            } else if let bow = madeBow, !store.save.taken.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    SmallCap(text: "Not what anyone ordered")
+                    RuleLine()
+                    ForEach(store.save.taken) { c in
+                        if let why = missedBy(c, bow: bow) {
+                            Text(clientBySlug(c.client).name + ": " + why)
+                                .font(Bark.serif(13)).foregroundColor(Bark.inkSoft)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Paperboard())
+            }
             WoodButton(title: "Back to the bench") { onClose() }
         }
         .padding(12)
@@ -240,7 +289,8 @@ struct FinishPanel: View {
                                   follow: session.followInches, evenness: session.reading.evenness,
                                   balance: session.reading.balance, grade: session.overall,
                                   shots: 0, best: 0, cast: session.castScore)
-            store.record(bow)
+            madeBow = bow
+            filled = store.record(bow)
         }
     }
 }

@@ -70,11 +70,15 @@ final class MakeSession: ObservableObject {
     @Published var pulled: Double = 0
 
     let seed: UInt64
+    let kit: Kit
 
-    init(entry: BowEntry, seed: UInt64) {
+    init(entry: BowEntry, seed: UInt64, kit: Kit) {
         self.entry = entry
         self.seed = seed
-        self.build = makeBuild(entry, seed: seed)
+        self.kit = kit
+        var b = makeBuild(entry, seed: seed)
+        b.breakStrain *= kit.breakBonus
+        self.build = b
         self.rings = makeRings(entry, seed: seed &+ 77)
     }
 
@@ -98,7 +102,7 @@ final class MakeSession: ObservableObject {
         staveScore = q
         let bonus = 0.86 + q * 0.28
         build = makeBuild(entry, seed: seed, excess: 1.44 - q * 0.10)
-        build.breakStrain *= bonus
+        build.breakStrain *= bonus * kit.breakBonus
         advance()
     }
 
@@ -111,7 +115,8 @@ final class MakeSession: ObservableObject {
         idealThickness(build.upper.width).map { $0 * 1.30 }
     }
 
-    func plane(upper: Bool, segment: Int, amount: Double) {
+    func plane(upper: Bool, segment: Int, rawAmount: Double) {
+        let amount = rawAmount * kit.planeBonus
         guard segment >= 0 && segment < segCount else { return }
         var arr = upper ? build.upper.thick : build.lower.thick
         for k in max(0, segment - 1)...min(segCount - 1, segment + 1) {
@@ -135,13 +140,20 @@ final class MakeSession: ObservableObject {
 
     func scrape(upper: Bool, segment: Int) {
         guard !build.broken else { return }
-        build.scrape(upperLimb: upper, segment: segment, amount: 0.014)
+        build.scrape(upperLimb: upper, segment: segment, amount: kit.scrapeBite)
         scrapesUsed += 1
         objectWillChange.send()
     }
 
+    var onLongString: Bool { kit.hasLongString && notch <= 10 }
+
     func pullToNotch() {
         guard !build.broken else { return }
+        if onLongString {
+            message = "On the long string. No strain on the limbs yet."
+            objectWillChange.send()
+            return
+        }
         if let m = build.apply(draw: currentDrop) {
             message = m
         } else {
@@ -184,6 +196,17 @@ final class MakeSession: ObservableObject {
         let even = reading.evenness
         let setPenalty = min(0.5, followInches / 8)
         return max(0.15, min(1, 0.42 + even * 0.42 + braceScore * 0.16 - setPenalty))
+    }
+
+    var lazySegment: (Bool, Int)? {
+        guard kit.hasGizmo else { return nil }
+        let r = reading
+        var lo = 0
+        var loUp = true
+        var least = Double.greatestFiniteMagnitude
+        for (i, v) in r.upper.strain.enumerated() where v < least { least = v; lo = i; loUp = true }
+        for (i, v) in r.lower.strain.enumerated() where v < least { least = v; lo = i; loUp = false }
+        return (loUp, lo)
     }
 
     var overall: Double {

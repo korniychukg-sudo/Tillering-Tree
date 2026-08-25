@@ -47,7 +47,7 @@ struct RoughStageView: View {
         let cur = upper ? session.build.upper.thick[seg] : session.build.lower.thick[seg]
         let over = max(0, cur - target)
         let bite = 0.006 + over * 0.10
-        session.plane(upper: upper, segment: seg, amount: bite)
+        session.plane(upper: upper, segment: seg, rawAmount: bite)
         if seg != lastSeg { passes += 1; lastSeg = seg }
     }
 }
